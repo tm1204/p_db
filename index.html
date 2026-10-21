@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Personal Overview</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --border: #262b36; --text: #e6e8ee;
+    --muted: #8b93a7; --accent: #5b8def; --green: #3ddc97; --amber: #e8a83c; --red: #e85c5c;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: clamp(12px, 1.05vw, 24px); }
+  body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.35; }
+  #stage { padding: 1.6rem 2rem; min-height: 100vh; display: grid; gap: 1.1rem;
+    grid-template-rows: auto auto auto 1fr; transition: opacity 2s, transform 2s; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.8rem; padding: 1rem 1.3rem; }
+  .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
+  .row { display: grid; gap: 1.1rem; }
+  .top { grid-template-columns: 1fr 1fr; align-items: stretch; }
+  .top .card { display: grid; grid-template-columns: 1fr auto; gap: 1.4rem; align-items: center; }
+  .sect { padding-right: 1.4rem; border-right: 1px solid var(--border); }
+  .clk { text-align: right; }
+  .price, .temp { font-size: 2.6rem; }
+  .low { grid-template-columns: 1fr 1fr; align-items: start; }
+  .time { font-size: 4.2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .sub { color: var(--muted); font-size: 1rem; }
+  .price { font-size: 3.2rem; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; }
+  .range { margin-top: 0.5rem; font-size: 1.05rem; }
+  .range.stale { color: var(--muted); }
+  .range-note { color: var(--muted); font-size: 0.85rem; margin-top: 0.1rem; }
+  .badge { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 0.4rem;
+    border: 1px solid var(--amber); color: var(--amber); margin-left: 0.4rem; }
+  .temp { font-size: 3.2rem; font-weight: 700; }
+  .days { display: flex; gap: 1.6rem; white-space: nowrap; margin-top: 0.4rem; color: var(--muted); font-size: 1rem; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 1.25rem; }
+  li:last-child { border-bottom: 0; }
+  li .d { color: var(--muted); display: inline-block; min-width: 7rem; font-size: 1rem; }
+  li.soon .d { color: var(--amber); font-weight: 600; }
+  .empty { color: var(--muted); font-size: 1rem; }
+  .verse { font-size: 1.7rem; line-height: 1.4; margin-top: 0.2rem; }
+  .ref { color: var(--amber); font-size: 1.05rem; margin-top: 0.5rem; }
+  footer { align-self: end; color: var(--muted); font-size: 0.85rem; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="row top">
+    <div class="card">
+      <div class="sect">
+        <div class="label">XAU / USD</div>
+        <div class="price" id="price">--</div>
+        <div class="sub" id="price-sub">loading</div>
+        <div class="range" id="range"></div>
+        <div class="range-note" id="range-note"></div>
+      </div>
+      <div class="clk">
+        <div class="label">New York</div>
+        <div class="time" id="t-ny">--:--</div>
+        <div class="sub" id="d-ny"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sect">
+        <div class="label" id="wx-label">Weather</div>
+        <div class="temp" id="wx-now">--</div>
+        <div class="sub" id="wx-sub"></div>
+        <div class="days" id="wx-days"></div>
+      </div>
+      <div class="clk">
+        <div class="label">Cape Town (SAST)</div>
+        <div class="time" id="t-za">--:--</div>
+        <div class="sub" id="d-za"></div>
+      </div>
+    </div>
+  </div>
+  <div class="row low">
+    <div class="card"><div class="label">To do</div><ul id="todos"></ul></div>
+    <div class="card"><div class="label">Reminders</div><ul id="reminders"></ul></div>
+  </div>
+  <div class="card" id="verse-card" style="display:none">
+    <div class="label">Verse of the day</div>
+    <div class="verse" id="verse"></div>
+    <div class="ref" id="ref"></div>
+  </div>
+  <footer><span id="updated"></span><span>Prices are indicative only. Not for trading decisions.</span></footer>
+</div>
+<script>
+const DATA = {"generated_at": "2026-10-21T11:56:20+00:00", "location": {"name": "Milnerton, Cape Town", "lat": -33.87, "lon": 18.49}, "range": {"type": "5m T2Bu", "noted_at": "2026-10-16T13:00:00+00:00"}, "todos": [{"text": "Bike oil service"}, {"text": "Car oil service+ sump gasket"}, {"text": "Drop links (ordered)"}, {"text": "Starter + 11 ratchet spanner"}, {"text": "Empty storage"}, {"text": "Sell inverter+battery, S5, R3, Macbook"}], "reminders": [{"text": "Request TesterBee report", "date": "2026-10-23"}, {"text": "Mens conference", "date": "2026-11-07"}, {"text": "Dustins wedding", "date": "2026-11-14"}, {"text": "BSC year end", "date": "2026-11-19"}], "verses": [{"text": "I can do all things through Christ who strengthens me.", "ref": "Philippians 4:13 NKJV"}, {"text": "But if the Spirit of Him who raised Jesus from the dead dwells in you, He who raised Christ from the dead will also give life to your mortal bodies through His Spirit who dwells in you.", "ref": "Romans 8:11 NKJV"}, {"text": "Yet what we suffer now is nothing compared to the glory he will reveal to us later.", "ref": "Romans 8:18 NLT"}, {"text": "And we know that all things work together for good to those who love God, to those who are called according to His purpose.", "ref": "Romans 8:28 NKJV"}, {"text": "What then shall we say to these things? If God is for us, who can be against us?", "ref": "Romans 8:31 NKJV"}, {"text": "Fear not, for I am with you; Be not dismayed, for I am your God. I will strengthen you, Yes, I will help you, I will uphold you with My righteous right hand.", "ref": "Isaiah 41:10 NKJV"}, {"text": "For I, the Lord your God, will hold your right hand, Saying to you, \u2018Fear not, I will help you.\u2019", "ref": "Isaiah 41:13 NKJV"}, {"text": "\u2026Do not fear, for I have redeemed you; I have summoned you by name; you are mine. When you pass through the waters, I will be with you; and when you pass through the rivers, they will not sweep over you. When you walk through the fire, you will not be burned; the flames will not set you ablaze.", "ref": "Isaiah 43:1-2 NIV"}, {"text": "The Lord is my light and my salvation; Whom shall I fear? The Lord is the strength of my life; Of whom shall I be afraid?", "ref": "Psalms 27:1 NKJV"}, {"text": "The Lord is with me; I will not be afraid. What can mere mortals do to me?", "ref": "Psalms 118:6 NIV"}, {"text": "though he may stumble, he will not fall, for the Lord upholds him with his hand.", "ref": "Psalms 37:24 NIV"}, {"text": "The Lord will keep you from all harm\u2014 he will watch over your life; the Lord will watch over your coming and going both now and forevermore.", "ref": "Psalms 121:7-8 NIV"}, {"text": "The Lord himself goes before you and will be with you; he will never leave you nor forsake you. Do not be afraid; do not be discouraged.", "ref": "Deuteronomy 31:8 NIV"}, {"text": "No man shall be able to stand before you all the days of your life; as I was with Moses, so I will be with you. I will not leave you nor forsake you.", "ref": "Joshua 1:5 NKJV"}, {"text": "Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", "ref": "Joshua 1:9 NIV"}, {"text": "persecuted, but not forsaken; struck down, but not destroyed\u2014", "ref": "II Corinthians 4:9 NKJV"}, {"text": "I have given you authority to trample on snakes and scorpions and to overcome all the power of the enemy; nothing will harm you.", "ref": "Luke 10:19 NIV"}, {"text": "I will make you a great nation; I will bless you And make your name great; And you shall be a blessing. I will bless those who bless you, And I will curse him who curses you; And in you all the families of the earth shall be blessed.", "ref": "Genesis 12:2-3 NKJV"}, {"text": "The smallest family will become a thousand people, and the tiniest group will become a mighty nation. At the right time, I, the Lord, will make it happen.", "ref": "Isaiah 60:22 NLT"}, {"text": "Now to Him who is able to do exceedingly abundantly above all that we ask or think, according to the power that works in us,", "ref": "Ephesians 3:20 NKJV"}, {"text": "May He grant your heart\u2019s desires and make all your plans succeed. May we shout for joy when we hear of your victory and raise a victory banner in the name of our God. May the Lord answer all your prayers.", "ref": "Psalms 20:4-5 NLT"}, {"text": "Some trust in chariots and some in horses, but we trust in the name of the Lord our God.", "ref": "Psalms 20:7 NIV"}, {"text": "The blessing of the Lord makes one rich, And He adds no sorrow with it.", "ref": "Proverbs 10:22 NKJV"}, {"text": "The righteous cry out, and the Lord hears them; he delivers them from all their troubles. The Lord is close to the brokenhearted and saves those who are crushed in spirit. The righteous person may have many troubles, but the Lord delivers him from them all; he protects all his bones, not one of them will be broken.", "ref": "Psalms 34:17-20 NIV"}, {"text": "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you; the Lord turn his face toward you and give you peace.", "ref": "Numbers 6:24-26 NIV"}, {"text": "Whether you turn to the right or to the left, your ears will hear a voice behind you, saying, \u201cThis is the way; walk in it.\u201d", "ref": "Isaiah 30:21 NIV"}, {"text": "I will repay you for the years the locusts have eaten\u2026", "ref": "Joel 2:25 NIV"}, {"text": "I will go before you and will level the mountains; I will break down gates of bronze and cut through bars of iron. I will give you hidden treasures, riches stored in secret places, so that you may know that I am the Lord, the God of Israel, who summons you by name.", "ref": "Isaiah 45:2-3 NIV"}]};
+const $ = id => document.getElementById(id);
+const NY = "America/New_York", ZA = "Africa/Johannesburg";
+const fmt = (tz, o) => new Intl.DateTimeFormat("en-GB", Object.assign({ timeZone: tz }, o));
+const hm = (tz, d) => fmt(tz, { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+const WMO = {0:"Clear",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Fog",51:"Drizzle",53:"Drizzle",55:"Drizzle",
+  56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",
+  71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Showers",81:"Showers",82:"Heavy showers",85:"Snow showers",
+  86:"Snow showers",95:"Thunderstorm",96:"Thunderstorm, hail",99:"Thunderstorm, hail"};
+
+function tick() {
+  const now = new Date();
+  $("t-ny").textContent = hm(NY, now);
+  $("t-za").textContent = hm(ZA, now);
+  const dd = tz => fmt(tz, { weekday: "long", day: "numeric", month: "long" }).format(now);
+  $("d-ny").textContent = dd(NY);
+  $("d-za").textContent = dd(ZA);
+  const h = Number(fmt(ZA, { hour: "2-digit", hour12: false }).format(now)) % 24;
+  const night = h >= 23 || h < 6;
+  const st = $("stage");
+  st.style.opacity = night ? "0.5" : "1";
+  const m = now.getMinutes();   // drift a few px each minute to spread pixel wear
+  st.style.transform = "translate(" + ((m % 7) - 3) + "px," + ((m % 5) - 2) + "px)";
+  renderRange(now);
+  if (dayNum() !== shownDay) renderVerse();
+}
+
+function renderRange(now) {
+  const el = $("range"), note = $("range-note");
+  if (!DATA.range) { el.textContent = ""; note.textContent = ""; return; }
+  const t = new Date(DATA.range.noted_at);
+  const hrs = (now - t) / 36e5;
+  const stale = hrs > 14 * 24;   // a dealing range can stay valid for up to two weeks
+  el.className = "range" + (stale ? " stale" : "");
+  el.textContent = "Dealing range: " + DATA.range.type;
+  if (stale) { const b = document.createElement("span"); b.className = "badge"; b.textContent = "STALE"; el.appendChild(b); }
+  const ago = hrs < 1 ? Math.max(1, Math.round(hrs * 60)) + " min ago"
+    : hrs < 48 ? Math.round(hrs) + " h ago" : Math.round(hrs / 24) + " days ago";
+  note.textContent = "noted " + hm(NY, t) + " NY (" + hm(ZA, t) + " SAST), " + ago;
+}
+
+async function getPrice() {
+  try {
+    const r = await fetch("https://api.gold-api.com/price/XAU", { cache: "no-store" });
+    const j = await r.json();
+    if (typeof j.price !== "number") throw new Error("bad");
+    $("price").textContent = "$" + j.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    $("price-sub").textContent = "as of " + hm(NY, new Date(j.updatedAt)) + " NY (" + hm(ZA, new Date(j.updatedAt)) + " SAST)";
+  } catch (e) { $("price-sub").textContent = "price unavailable, retrying"; }
+}
+
+async function getWeather() {
+  const L = DATA.location;
+  $("wx-label").textContent = "Weather · " + L.name;
+  try {
+    const u = "https://api.open-meteo.com/v1/forecast?latitude=" + L.lat + "&longitude=" + L.lon +
+      "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m" +
+      "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunset&timezone=Africa%2FJohannesburg&forecast_days=3";
+    const j = await (await fetch(u, { cache: "no-store" })).json();
+    const c = j.current;
+    $("wx-now").textContent = Math.round(c.temperature_2m) + "°C";
+    $("wx-sub").textContent = (WMO[c.weather_code] || "") + " · feels " + Math.round(c.apparent_temperature) +
+      "° · wind " + Math.round(c.wind_speed_10m) + " km/h";
+    // next sunset: today's if still ahead, otherwise tomorrow's (times are local, so strings compare in order)
+    const sunToday = j.daily.sunset[0], sunNext = sunToday > c.time ? sunToday : j.daily.sunset[1];
+    if (sunNext) $("wx-sub").textContent += " · sunset " + (sunNext === sunToday ? "" : "tomorrow ") + sunNext.slice(11, 16);
+    const box = $("wx-days"); box.textContent = "";
+    j.daily.time.forEach((d, i) => {
+      const s = document.createElement("span");
+      const day = i === 0 ? "Today" : new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+      s.textContent = day + " " + Math.round(j.daily.temperature_2m_min[i]) + "–" + Math.round(j.daily.temperature_2m_max[i]) +
+        "°";
+      box.appendChild(s);
+    });
+  } catch (e) { $("wx-sub").textContent = "weather unavailable, retrying"; }
+}
+
+let shownDay = null;
+function dayNum() {
+  const p = fmt(ZA, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).split("/");
+  return Math.floor(Date.UTC(+p[2], +p[1] - 1, +p[0]) / 864e5);
+}
+function hash(x) { x = (x ^ 61) ^ (x >>> 16); x = (x + (x << 3)) | 0; x ^= x >>> 4; x = Math.imul(x, 0x27d4eb2d); x ^= x >>> 15; return x >>> 0; }
+function renderVerse() {
+  const v = DATA.verses || [];
+  if (!v.length) return;
+  const n = dayNum(); shownDay = n;
+  let i = hash(n) % v.length;
+  if (v.length > 1 && i === hash(n - 1) % v.length) i = (i + 1) % v.length;  // never repeat yesterday
+  $("verse").textContent = "“" + v[i].text + "”";
+  $("ref").textContent = v[i].ref;
+  $("verse-card").style.display = "";
+}
+
+function renderLists() {
+  const td = $("todos");
+  if (!DATA.todos.length) { td.innerHTML = '<li class="empty">Nothing listed</li>'; }
+  DATA.todos.forEach(t => { const li = document.createElement("li"); li.textContent = t.text; td.appendChild(li); });
+  const rm = $("reminders");
+  if (!DATA.reminders.length) { rm.innerHTML = '<li class="empty">Nothing coming up</li>'; }
+  const today = new Date(fmt(ZA, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).split("/").reverse().join("-") + "T00:00:00Z");
+  DATA.reminders.forEach(r => {
+    const li = document.createElement("li");
+    const d = new Date(r.date + "T00:00:00Z");
+    const span = document.createElement("span"); span.className = "d";
+    span.textContent = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+    li.appendChild(span); li.appendChild(document.createTextNode(r.text));
+    if ((d - today) / 864e5 <= 2) li.className = "soon";
+    rm.appendChild(li);
+  });
+  const g = new Date(DATA.generated_at);
+  $("updated").textContent = "Page updated " + fmt(NY, { day: "numeric", month: "short", year: "numeric" }).format(g) +
+    " " + hm(NY, g) + " NY (" + hm(ZA, g) + " SAST)";
+}
+
+renderLists(); renderVerse(); tick(); getPrice(); getWeather();
+setInterval(tick, 20000);
+setInterval(getPrice, 60000);
+setInterval(getWeather, 15 * 60000);
+// pick up newly pushed versions without a remote: reload every 30 min if the page is reachable
+setInterval(() => fetch(location.href, { cache: "no-store" }).then(r => { if (r.ok) location.reload(); }).catch(() => {}), 30 * 60000);
+</script>
+</body>
+</html>
