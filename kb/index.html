@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>KickBoxing Training Timer</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --border: #262b36; --text: #e6e8ee;
+    --muted: #8b93a7; --accent: #5b8def; --green: #3ddc97; --amber: #e8a83c; --red: #e85c5c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.35; }
+  main { max-width: 560px; margin: 0 auto;
+    padding: max(1rem, env(safe-area-inset-top, 0px)) max(0.9rem, env(safe-area-inset-right, 0px))
+      max(1rem, env(safe-area-inset-bottom, 0px)) max(0.9rem, env(safe-area-inset-left, 0px)); }
+  h1 { font-size: 1.2rem; margin: 0 0 0.8rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.8rem; padding: 1rem; margin-bottom: 0.8rem; }
+  .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+  .sub { color: var(--muted); font-size: 0.95rem; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.8rem; }
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.5rem; }
+  #gymrow label { display: block; margin-top: 0.6rem; color: var(--muted); font-size: 0.9rem; }
+  #gymrow input { margin-top: 0.2rem; }
+  .moves { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+  .moves li { padding: 0.15rem 0; }
+  .cue { color: var(--amber); font-weight: 700; font-size: 1.2rem; text-align: center; min-height: 1.6rem; }
+  .big.name { font-size: 2.2rem; }
+  button, input { font: inherit; color: var(--text); }
+  button { background: var(--card); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.8rem; min-height: 3rem; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  button.go { width: 100%; background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.stop { width: 100%; min-height: 6rem; background: var(--red); border-color: var(--red); color: #fff; font-size: 1.6rem; font-weight: 700; }
+  button.small { padding: 0.5rem 0.8rem; min-height: 2.5rem; font-size: 0.9rem; }
+  input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.8rem; font-size: 1.3rem; }
+  .field { display: flex; gap: 0.6rem; align-items: center; margin: 0.6rem 0 0.9rem; }
+  .field span { white-space: nowrap; color: var(--muted); }
+  .big { font-size: 5rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .phase { text-align: center; font-size: 1.4rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .work { color: var(--green); } .rest { color: var(--amber); } .ready { color: var(--accent); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+  .row:last-child { border-bottom: 0; }
+  .row .x { padding: 0.2rem 0.6rem; min-height: 0; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.7rem; }
+  .hide { display: none; }
+  #msg { color: var(--green); min-height: 1.3rem; font-size: 0.9rem; margin-top: 0.4rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>KickBoxing Training Timer</h1>
+
+  <div id="setup">
+    <div class="cats" id="cats"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="card">
+      <div class="label" id="tname"></div>
+      <div class="sub" id="tdesc"></div>
+      <div class="field" id="valrow"><input id="val" type="number" inputmode="decimal" step="any"><span id="unit"></span></div>
+      <div id="gymrow" class="hide">
+        <label for="glen">Length per round (minutes)</label><input id="glen" type="number" inputmode="decimal" step="any">
+        <label for="grounds">Rounds</label><input id="grounds" type="number" inputmode="numeric" step="1">
+        <label for="grest">Rest between rounds (seconds)</label><input id="grest" type="number" inputmode="numeric" step="1">
+      </div>
+      <div class="sub" id="hint"></div>
+      <div style="height:0.8rem"></div>
+      <button class="go" id="start">Start test</button>
+    </div>
+  </div>
+
+  <div id="run" class="hide">
+    <div class="card">
+      <div class="phase" id="phase"></div>
+      <div class="big" id="held"></div>
+      <div class="cue" id="cue"></div>
+      <div class="sub" style="text-align:center" id="info"></div>
+    </div>
+    <button class="stop" id="fail">FAILED</button>
+  </div>
+
+  <div id="done" class="hide">
+    <div class="card">
+      <div class="label">Result</div>
+      <div class="big" id="res"></div>
+      <div class="sub" style="text-align:center" id="resinfo"></div>
+      <div class="field"><input id="note" type="text" placeholder="Note (optional)"></div>
+      <div class="btns"><button id="discard">Discard</button><button class="go" id="save">Save</button></div>
+    </div>
+  </div>
+
+  <div class="card hide" id="spdcard">
+    <div class="label">Completed speed sessions</div>
+    <div id="spdhist"></div>
+    <div class="btns"><button class="small" id="spdcopy">Copy all (CSV)</button></div>
+  </div>
+
+  <div class="card" id="histcard">
+    <div class="label">History</div>
+    <div id="hist"></div>
+    <div class="btns">
+      <button class="small" id="copyrow">Copy row (latest date)</button>
+      <button class="small" id="copyall">Copy all (CSV)</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+  <div class="sub">Results are stored on this device only.</div>
+</main>
+
+<script>
+// Three fixed-pace holds: 3 rounds x 3 min work, 30 sec rest, 9 min cap, score = round and time into the round reached.
+// Protocol: projects/the-body/kickboxing/training-program.md (Progress Tests).
+const WORK = 180, REST = 30, ROUNDS = 3, CAP = WORK * ROUNDS, LEAD = 5;
+const TESTS = {
+  1: { name: "1. Punch hold", unit: "punches per minute", def: 100, step: 5,
+       desc: "Punch the bag to the beat. Stop the first time you lose it for about 10 seconds.",
+       interval: v => 60 / v, fmt: v => v + " / min" },
+  2: { name: "2. Leg hold", unit: "seconds between beeps", def: 2, step: -0.1,
+       desc: "Shuffle between two lines 4 m apart, touching a line on every beep. Stop when you miss twice in a row.",
+       interval: v => v, fmt: v => v.toFixed(1) + " s" },
+  3: { name: "3. Combined hold", unit: "seconds between beeps", def: 6, step: -0.1,
+       desc: "Throw a 3-hit combo on each beep. Stop when a beep or combo is missed twice in a row.",
+       interval: v => v, fmt: v => v.toFixed(1) + " s" },
+};
+// Speed session timers, from the "20-Min Explosive Home Workout" graphic. Same count-in and beeps as the tests.
+const W = (name, dur, info, cue) => ({ name, dur, work: true, info, cue });
+const R = (name, dur, info) => ({ name, dur, work: false, info });
+const WARM = ["Light bounce and switch stance", "Leg swings", "Pogo hops", "Slow chamber extensions"];
+const CIRC = ["Relaxed-to-explosive squat jumps", "Fast-feet to blitz tuck jump", "Skater bounds with sticky landing", "Chamber-hold isometric wall squat"];
+const BURN = ["Double-pulse blitz kicks", "Bicycle crunches with explosive twist"];
+function circuit() {
+  const out = [];
+  for (let r = 1; r <= 3; r++) {
+    const info = "Round " + r + " of 3";
+    CIRC.forEach((m, i) => {
+      out.push(W(m, 40, info, i === 3 ? { at: 20, text: "SWITCH LEG" } : null));
+      if (i < 3) out.push(R("Rest", 20, info));
+    });
+    if (r < 3) out.push(R("Round rest", 60, info));
+  }
+  return out;
+}
+const SPEED = {
+  1: { name: "Warm-up", desc: "30 sec each, back to back, no rest. Sequence done twice.", moves: WARM,
+       segs: WARM.concat(WARM).map((m, i) => W(m, 30, "Move " + (i + 1) + " of 8")) },
+  2: { name: "Power and speed circuit", desc: "3 rounds of 4 moves: 40 sec work, 20 sec rest between moves, 60 sec rest between rounds.", moves: CIRC.map((m, i) => (i === 3 ? m + " (switch leg at 20 sec)" : m)),
+       segs: circuit() },
+  3: { name: "Fast-twitch burnout", desc: "2 rounds of 2 moves: 45 sec work, 15 sec rest.", moves: BURN,
+       segs: [0, 1, 2, 3].reduce((a, i) => a.concat(i < 3 ? [W(BURN[i % 2], 45, "Round " + (Math.floor(i / 2) + 1) + " of 2"), R("Rest", 15, "Round " + (Math.floor(i / 2) + 1) + " of 2")] : [W(BURN[i % 2], 45, "Round 2 of 2")]), []) },
+};
+const GYM = { len: 3, rounds: 13, rest: 30 }; // gym session defaults, adjustable on the page
+const KEY = "kbtests", SKEY = "kbspeed";
+let mode = "speed", sp = 1, segs = [], total = 0, runName = "", recorded = false;
+let test = 1, ctx = null, t0 = 0, timer = null, wake = null, nextBeep = 0, pace = 0, heldNow = 0, lastHeld = 0;
+
+const $ = id => document.getElementById(id);
+// Where in the test the work time reached: round number and time into that round (work time only, rest excluded).
+const reached = h => { const r = Math.max(1, Math.min(ROUNDS, Math.ceil(h / WORK))); return "R" + r + " " + mmss(Math.min(WORK, h - (r - 1) * WORK)); };
+const mmss = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
+const store = list => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { say("Could not save on this device"); } };
+const sload = () => { try { return JSON.parse(localStorage.getItem(SKEY)) || []; } catch (e) { return []; } };
+const sstore = list => { try { localStorage.setItem(SKEY, JSON.stringify(list)); } catch (e) { say("Could not save on this device"); } };
+const say = t => { $("msg").textContent = t; };
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const show = id => ["setup", "run", "done"].forEach(x => $(x).classList.toggle("hide", x !== id));
+
+// Next starting value: the last one used, raised one step once the full 9 minutes was held.
+function startValue(t) {
+  const last = load().filter(e => e.t === t).pop();
+  if (!last) return TESTS[t].def;
+  const v = last.held >= CAP ? last.p + TESTS[t].step : last.p;
+  return Math.round(v * 10) / 10;
+}
+
+// Gym session: N rounds of fixed length with a rest between rounds, from the three fields on the page.
+function gymSegs() {
+  const len = parseFloat($("glen").value) * 60, n = parseInt($("grounds").value, 10), rest = parseFloat($("grest").value);
+  if (!(len > 0) || !(n >= 1) || !(rest >= 0)) return [];
+  const out = [];
+  for (let r = 1; r <= n; r++) {
+    out.push(W("Round " + r, len, "Round " + r + " of " + n));
+    if (r < n && rest > 0) out.push(R("Rest", rest, "Round " + r + " of " + n));
+  }
+  return out;
+}
+function gymHint() {
+  const g = gymSegs();
+  $("hint").textContent = g.length ? "Total " + mmss(g.reduce((a, x) => a + x.dur, 0)) + ", plus a " + LEAD + " second count-in." : "Enter a length, a number of rounds and a rest (0 or more).";
+}
+
+function pick(t) {
+  document.querySelectorAll("#tabs button").forEach((b, i) => b.classList.toggle("on", i + 1 === t));
+  $("valrow").classList.toggle("hide", mode !== "test");
+  $("histcard").classList.toggle("hide", mode !== "test");
+  $("spdcard").classList.toggle("hide", mode !== "speed" || t !== 3); // shown once, under the Burnout tab
+  $("gymrow").classList.toggle("hide", mode !== "gym");
+  if (mode === "gym") {
+    $("tname").textContent = "Gym session";
+    $("tdesc").textContent = "Timed rounds with a rest between them. Adjust below.";
+    $("glen").value = GYM.len; $("grounds").value = GYM.rounds; $("grest").value = GYM.rest;
+    gymHint();
+    return;
+  }
+  if (mode === "speed") {
+    sp = t;
+    $("tname").textContent = SPEED[t].name;
+    $("tdesc").textContent = SPEED[t].desc;
+    const ul = document.createElement("ul");
+    ul.className = "moves";
+    SPEED[t].moves.forEach(m => { const li = document.createElement("li"); li.textContent = m; ul.appendChild(li); });
+    $("tdesc").appendChild(ul);
+    $("hint").textContent = "Total " + mmss(SPEED[t].segs.reduce((a, g) => a + g.dur, 0)) + ", plus a " + LEAD + " second count-in.";
+    return;
+  }
+  test = t;
+  const T = TESTS[t];
+  $("tname").textContent = T.name;
+  $("tdesc").textContent = T.desc;
+  $("unit").textContent = T.unit;
+  $("val").value = startValue(t);
+  const last = load().filter(e => e.t === t).pop();
+  $("hint").textContent = last ? "Last: " + T.fmt(last.p) + ", reached " + reached(last.held) : "First run: " + T.def + " " + T.unit + " is the starting point.";
+}
+
+// Audio: beeps are scheduled on the audio clock so the timing does not drift with the page timer.
+function tone(freq, at, len, vol) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+  g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + len);
+  o.start(at); o.stop(at + len + 0.02);
+}
+const elapsedAt = w => { const r = Math.floor(w / WORK); return r * (WORK + REST) + (w - r * WORK); }; // work time -> clock time
+
+async function start() {
+  pace = parseFloat($("val").value);
+  if (!(pace > 0)) { $("val").focus(); return; }
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  await ctx.resume();
+  try { wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; }
+  t0 = ctx.currentTime + LEAD;
+  nextBeep = 0;
+  for (let r = 0; r < ROUNDS; r++) {
+    tone(1200, t0 + r * (WORK + REST), 0.5, 0.5);          // round start
+    tone(500, t0 + r * (WORK + REST) + WORK, 0.8, 0.5);    // round end
+  }
+  $("held").className = "big";
+  $("cue").textContent = "";
+  $("fail").textContent = "FAILED";
+  show("run");
+  timer = setInterval(tick, 100);
+  tick();
+}
+
+function tick() {
+  const e = ctx.currentTime - t0, T = TESTS[test], gap = T.interval(pace);
+  // schedule beeps up to 0.5 s ahead, work time only
+  for (;;) {
+    const w = nextBeep * gap;
+    if (w >= CAP - 0.01) break;
+    const r = Math.floor(w / WORK);
+    if (w - r * WORK >= WORK - 0.01) { nextBeep++; continue; } // would land on the round end
+    if (t0 + elapsedAt(w) > ctx.currentTime + 0.5) break;
+    if (w > 0 && w % WORK > 0.01) tone(880, t0 + elapsedAt(w), 0.08, 0.6);
+    nextBeep++;
+  }
+  if (e < 0) { $("phase").textContent = "GET READY"; $("phase").className = "phase ready"; $("held").textContent = Math.ceil(-e); $("info").textContent = "Starting " + T.fmt(pace); return; }
+  const r = Math.floor(e / (WORK + REST)), within = e - r * (WORK + REST);
+  if (r >= ROUNDS - 1 && within >= WORK) { finish(CAP); return; }
+  if (within < WORK) {
+    heldNow = r * WORK + within;
+    $("phase").textContent = "ROUND " + (r + 1) + " OF " + ROUNDS + ": GO"; $("phase").className = "phase work";
+    $("info").textContent = T.fmt(pace) + " | round left " + mmss(WORK - within);
+  } else {
+    heldNow = (r + 1) * WORK;
+    $("phase").textContent = "REST"; $("phase").className = "phase rest";
+    $("info").textContent = "Round " + (r + 2) + " starts in " + Math.ceil(WORK + REST - within) + " s";
+  }
+  $("held").textContent = mmss(heldNow);
+}
+
+function finish(held) {
+  clearInterval(timer);
+  const c = ctx;
+  if (c) setTimeout(() => c.close(), held >= CAP ? 1500 : 0); // let the final round-end tone play
+  if (wake) wake.release().catch(() => {});
+  lastHeld = Math.min(CAP, Math.floor(held));
+  $("res").textContent = reached(lastHeld);
+  $("resinfo").textContent = TESTS[test].name + " at " + TESTS[test].fmt(pace) + (lastHeld >= CAP ? " | all 3 rounds held, pace goes up next time" : "");
+  $("note").value = "";
+  show("done");
+}
+
+// Speed session: a list of timed segments, the same beeps as the tests (high tone = work, low = rest, short ticks for the last 3 sec).
+async function startSpeed() {
+  segs = mode === "gym" ? gymSegs() : SPEED[sp].segs;
+  if (!segs.length) { gymHint(); return; }
+  runName = mode === "gym" ? "Gym session" : SPEED[sp].name;
+  recorded = false;
+  total = 0;
+  segs.forEach(g => { g.at = total; total += g.dur; });
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  await ctx.resume();
+  try { wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; }
+  t0 = ctx.currentTime + LEAD;
+  segs.forEach(g => {
+    tone(g.work ? 1200 : 500, t0 + g.at, g.work ? 0.4 : 0.6, 0.5);
+    for (let k = 1; k <= 3; k++) if (g.dur > 3) tone(880, t0 + g.at + g.dur - k, 0.08, 0.6);
+    if (g.cue) { tone(1000, t0 + g.at + g.cue.at, 0.2, 0.6); tone(1000, t0 + g.at + g.cue.at + 0.3, 0.2, 0.6); }
+  });
+  tone(500, t0 + total, 1, 0.5);
+  $("fail").textContent = "STOP";
+  show("run");
+  timer = setInterval(tickSpeed, 100);
+  tickSpeed();
+}
+
+function tickSpeed() {
+  const e = ctx.currentTime - t0;
+  $("held").className = "big name";
+  $("cue").textContent = "";
+  if (e < 0) { $("phase").textContent = "GET READY"; $("phase").className = "phase ready"; $("held").textContent = Math.ceil(-e); $("info").textContent = runName; return; }
+  if (e >= total) { clearInterval(timer); if (mode === "speed" && sp === 3 && !recorded) logSession(); $("phase").textContent = "DONE"; $("phase").className = "phase ready"; $("held").textContent = mmss(total); $("info").textContent = runName + " complete"; $("fail").textContent = "BACK"; return; }
+  const i = segs.findIndex(g => e < g.at + g.dur), g = segs[i];
+  const next = segs.slice(i + 1).find(n => n.work);
+  $("phase").textContent = g.name.toUpperCase(); $("phase").className = "phase " + (g.work ? "work" : "rest");
+  $("held").textContent = Math.ceil(g.at + g.dur - e);
+  $("info").textContent = g.info + " | Next: " + (next ? next.name : "finish");
+  if (g.cue && e - g.at >= g.cue.at) $("cue").textContent = g.cue.text;
+}
+
+// Speed session log: one entry per completed session (date and time), written when the last section (burnout) finishes.
+function logSession() {
+  recorded = true;
+  const n = new Date(), list = sload();
+  list.push({ d: today(), t: String(n.getHours()).padStart(2, "0") + ":" + String(n.getMinutes()).padStart(2, "0") });
+  sstore(list);
+  renderSpeed();
+}
+function renderSpeed() {
+  const list = sload();
+  $("spdhist").innerHTML = list.length ? "" : '<div class="sub">No speed sessions yet.</div>';
+  list.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+    const d = document.createElement("div");
+    d.className = "row";
+    d.innerHTML = "<span>" + e.d + " " + (e.t || "") + " | <b>completed</b></span>";
+    const x = document.createElement("button");
+    x.className = "x small"; x.textContent = "x";
+    x.onclick = () => { if (confirm("Delete this entry?")) { list.splice(i, 1); sstore(list); renderSpeed(); } };
+    d.appendChild(x);
+    $("spdhist").appendChild(d);
+  });
+}
+
+function stopSpeed() {
+  clearInterval(timer);
+  const c = ctx;
+  if (c) c.close();
+  if (wake) wake.release().catch(() => {});
+  $("held").className = "big";
+  $("fail").textContent = "FAILED";
+  show("setup");
+  pick(mode === "speed" ? sp : 1);
+}
+
+function save() {
+  const list = load();
+  list.push({ d: today(), t: test, p: pace, held: lastHeld, n: $("note").value.trim() });
+  store(list);
+  back();
+}
+function back() { show("setup"); pick(test); render(); say(""); }
+
+function render() {
+  const list = load();
+  $("hist").innerHTML = list.length ? "" : '<div class="sub">No results yet.</div>';
+  list.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+    const d = document.createElement("div");
+    d.className = "row";
+    d.innerHTML = "<span>" + e.d + " | T" + e.t + " " + TESTS[e.t].fmt(e.p) + " | <b>" + reached(e.held) + "</b>" + (e.n ? " | " + e.n.replace(/[<>&]/g, "") : "") + "</span>";
+    const x = document.createElement("button");
+    x.className = "x small"; x.textContent = "x";
+    x.onclick = () => { if (confirm("Delete this result?")) { list.splice(i, 1); store(list); render(); } };
+    d.appendChild(x);
+    $("hist").appendChild(d);
+  });
+}
+
+// Row for progress-tests.md: the latest result of each test on the most recent date.
+function row() {
+  const list = load();
+  if (!list.length) return "";
+  const d = list[list.length - 1].d;
+  const get = t => list.filter(e => e.d === d && e.t === t).pop();
+  const cell = (e, k) => e ? (k === "p" ? (e.t === 1 ? e.p : e.p.toFixed(1)) : reached(e.held)) : "-";
+  const notes = list.filter(e => e.d === d && e.n).map(e => "T" + e.t + ": " + e.n).join("; ");
+  return "| " + d + " | " + cell(get(1), "p") + " | " + cell(get(1), "h") + " | " + cell(get(2), "p") + " | " + cell(get(2), "h") + " | " + cell(get(3), "p") + " | " + cell(get(3), "h") + " | " + notes + " |";
+}
+async function copy(text) {
+  if (!text) { say("Nothing to copy"); return; }
+  try { await navigator.clipboard.writeText(text); say("Copied"); }
+  catch (e) { const a = document.createElement("textarea"); a.value = text; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); say("Copied"); }
+}
+
+const TABS = { speed: ["Warm-up", "Circuit", "Burnout"], test: ["Test 1", "Test 2", "Test 3"], gym: [] };
+const CATS = [["gym", "Gym session"], ["speed", "Speed session"], ["test", "Tests"]];
+function category(m) {
+  mode = m;
+  document.querySelectorAll("#cats button").forEach((b, i) => b.classList.toggle("on", CATS[i][0] === m));
+  $("tabs").classList.toggle("hide", m === "gym");
+  $("tabs").innerHTML = "";
+  TABS[m].forEach((label, i) => { const b = document.createElement("button"); b.textContent = label; b.onclick = () => pick(i + 1); $("tabs").appendChild(b); });
+  pick(1);
+}
+CATS.forEach(([m, label]) => { const b = document.createElement("button"); b.textContent = label; b.onclick = () => category(m); $("cats").appendChild(b); });
+$("start").onclick = () => (mode === "test" ? start() : startSpeed());
+$("fail").onclick = () => (mode === "test" ? finish(heldNow) : stopSpeed());
+["glen", "grounds", "grest"].forEach(id => $(id).addEventListener("input", gymHint));
+$("save").onclick = save;
+$("discard").onclick = back;
+$("spdcopy").onclick = () => copy(["date,time"].concat(sload().map(e => [e.d, e.t || ""].join(","))).join("\n"));
+$("copyrow").onclick = () => copy(row());
+$("copyall").onclick = () => copy(["date,test,pace,held_sec,note"].concat(load().map(e => [e.d, e.t, e.p, e.held, '"' + (e.n || "").replace(/"/g, "'") + '"'].join(","))).join("\n"));
+category("gym");
+render();
+renderSpeed();
+</script>
+</body>
+</html>
