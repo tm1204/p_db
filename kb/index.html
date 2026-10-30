@@ -195,6 +195,7 @@ function gymHint() {
 function pick(t) {
   document.querySelectorAll("#tabs button").forEach((b, i) => b.classList.toggle("on", i + 1 === t));
   $("valrow").classList.toggle("hide", mode !== "test");
+  $("start").textContent = mode === "test" ? "Start test" : mode === "gym" ? "Start gym session" : "Start " + SPEED[t].name.toLowerCase();
   $("histcard").classList.toggle("hide", mode !== "test");
   $("spdcard").classList.toggle("hide", mode !== "speed" || t !== 3); // shown once, under the Burnout tab
   $("gymrow").classList.toggle("hide", mode !== "gym");
