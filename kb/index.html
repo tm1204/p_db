@@ -57,7 +57,7 @@
   <div id="setup">
     <div class="cats" id="cats"></div>
     <div class="tabs" id="tabs"></div>
-    <div class="card">
+    <div class="card" id="maincard">
       <div class="label" id="tname"></div>
       <div class="sub" id="tdesc"></div>
       <div class="field" id="valrow"><input id="val" type="number" inputmode="decimal" step="any"><span id="unit"></span></div>
@@ -92,22 +92,30 @@
     </div>
   </div>
 
+  <div class="card hide" id="gymcard">
+    <div class="label">Gym sessions</div>
+    <div id="gymhist"></div>
+    <div class="btns"><button class="small" id="gymcopy">Copy all (CSV)</button></div>
+    <div class="sub">Results are stored on this device only.</div>
+  </div>
+
   <div class="card hide" id="spdcard">
     <div class="label">Completed speed sessions</div>
     <div id="spdhist"></div>
     <div class="btns"><button class="small" id="spdcopy">Copy all (CSV)</button></div>
+    <div class="sub">Results are stored on this device only.</div>
   </div>
 
   <div class="card" id="histcard">
-    <div class="label">History</div>
+    <div class="label" id="histlabel">History</div>
     <div id="hist"></div>
-    <div class="btns">
+    <div class="btns hide" id="copybtns">
       <button class="small" id="copyrow">Copy row (latest date)</button>
       <button class="small" id="copyall">Copy all (CSV)</button>
     </div>
     <div id="msg"></div>
+    <div class="sub">Results are stored on this device only.</div>
   </div>
-  <div class="sub">Results are stored on this device only.</div>
 </main>
 
 <script>
@@ -152,8 +160,8 @@ const SPEED = {
        segs: [0, 1, 2, 3].reduce((a, i) => a.concat(i < 3 ? [W(BURN[i % 2], 45, "Round " + (Math.floor(i / 2) + 1) + " of 2"), R("Rest", 15, "Round " + (Math.floor(i / 2) + 1) + " of 2")] : [W(BURN[i % 2], 45, "Round 2 of 2")]), []) },
 };
 const GYM = { len: 3, rounds: 13, rest: 30 }; // gym session defaults, adjustable on the page
-const KEY = "kbtests", SKEY = "kbspeed";
-let mode = "speed", sp = 1, segs = [], total = 0, runName = "", recorded = false;
+const KEY = "kbtests", SKEY = "kbspeed", GKEY = "kbgym";
+let mode = "speed", sp = 1, segs = [], total = 0, runName = "", recorded = false, histTab = 1, gymLen = 0;
 let test = 1, ctx = null, t0 = 0, timer = null, wake = null, nextBeep = 0, pace = 0, heldNow = 0, lastHeld = 0;
 
 const $ = id => document.getElementById(id);
@@ -164,6 +172,8 @@ const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; }
 const store = list => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { say("Could not save on this device"); } };
 const sload = () => { try { return JSON.parse(localStorage.getItem(SKEY)) || []; } catch (e) { return []; } };
 const sstore = list => { try { localStorage.setItem(SKEY, JSON.stringify(list)); } catch (e) { say("Could not save on this device"); } };
+const gload = () => { try { return JSON.parse(localStorage.getItem(GKEY)) || []; } catch (e) { return []; } };
+const gstore = list => { try { localStorage.setItem(GKEY, JSON.stringify(list)); } catch (e) { say("Could not save on this device"); } };
 const say = t => { $("msg").textContent = t; };
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const show = id => ["setup", "run", "done"].forEach(x => $(x).classList.toggle("hide", x !== id));
@@ -196,7 +206,11 @@ function pick(t) {
   document.querySelectorAll("#tabs button").forEach((b, i) => b.classList.toggle("on", i + 1 === t));
   $("valrow").classList.toggle("hide", mode !== "test");
   $("start").textContent = mode === "test" ? "Start test" : mode === "gym" ? "Start gym session" : "Start " + SPEED[t].name.toLowerCase();
+  const all = mode === "test" && t === 4; // the "All" tab: results of tests 1 to 3 grouped by date, no timer
+  $("maincard").classList.toggle("hide", all);
+  $("copybtns").classList.toggle("hide", !all);
   $("histcard").classList.toggle("hide", mode !== "test");
+  $("gymcard").classList.toggle("hide", mode !== "gym");
   $("spdcard").classList.toggle("hide", mode !== "speed" || t !== 3); // shown once, under the Burnout tab
   $("gymrow").classList.toggle("hide", mode !== "gym");
   if (mode === "gym") {
@@ -217,6 +231,8 @@ function pick(t) {
     $("hint").textContent = "Total " + mmss(SPEED[t].segs.reduce((a, g) => a + g.dur, 0)) + ", plus a " + LEAD + " second count-in.";
     return;
   }
+  histTab = t;
+  if (all) { render(); return; }
   test = t;
   const T = TESTS[t];
   $("tname").textContent = T.name;
@@ -225,6 +241,7 @@ function pick(t) {
   $("val").value = startValue(t);
   const last = load().filter(e => e.t === t).pop();
   $("hint").textContent = last ? "Last: " + T.fmt(last.p) + ", reached " + reached(last.held) : "First run: " + T.def + " " + T.unit + " is the starting point.";
+  render();
 }
 
 // Audio: beeps are scheduled on the audio clock so the timing does not drift with the page timer.
@@ -301,6 +318,7 @@ async function startSpeed() {
   if (!segs.length) { gymHint(); return; }
   runName = mode === "gym" ? "Gym session" : SPEED[sp].name;
   recorded = false;
+  gymLen = parseFloat($("glen").value);
   total = 0;
   segs.forEach(g => { g.at = total; total += g.dur; });
   ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -324,7 +342,7 @@ function tickSpeed() {
   $("held").className = "big name";
   $("cue").textContent = "";
   if (e < 0) { $("phase").textContent = "GET READY"; $("phase").className = "phase ready"; $("held").textContent = Math.ceil(-e); $("info").textContent = runName; return; }
-  if (e >= total) { clearInterval(timer); if (mode === "speed" && sp === 3 && !recorded) logSession(); $("phase").textContent = "DONE"; $("phase").className = "phase ready"; $("held").textContent = mmss(total); $("info").textContent = runName + " complete"; $("fail").textContent = "BACK"; return; }
+  if (e >= total) { clearInterval(timer); if (mode === "speed" && sp === 3 && !recorded) logSession(); if (mode === "gym" && !recorded) logGym(e); $("phase").textContent = "DONE"; $("phase").className = "phase ready"; $("held").textContent = mmss(total); $("info").textContent = runName + " complete"; $("fail").textContent = "BACK"; return; }
   const i = segs.findIndex(g => e < g.at + g.dur), g = segs[i];
   const next = segs.slice(i + 1).find(n => n.work);
   $("phase").textContent = g.name.toUpperCase(); $("phase").className = "phase " + (g.work ? "work" : "rest");
@@ -356,8 +374,35 @@ function renderSpeed() {
   });
 }
 
+// Gym session log: date, round length (minutes) and rounds completed. Written when the session finishes or is stopped early,
+// as long as at least one round was completed.
+function logGym(e) {
+  recorded = true;
+  const r = segs.filter(g => g.work && g.at + g.dur <= e).length;
+  if (!r) return;
+  const list = gload();
+  list.push({ d: today(), len: gymLen, r });
+  gstore(list);
+  renderGym();
+}
+function renderGym() {
+  const list = gload();
+  $("gymhist").innerHTML = list.length ? "" : '<div class="sub">No gym sessions yet.</div>';
+  list.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+    const d = document.createElement("div");
+    d.className = "row";
+    d.innerHTML = "<span>" + e.d + " | " + e.len + " min rounds | <b>" + e.r + " completed</b></span>";
+    const x = document.createElement("button");
+    x.className = "x small"; x.textContent = "x";
+    x.onclick = () => { if (confirm("Delete this entry?")) { list.splice(i, 1); gstore(list); renderGym(); } };
+    d.appendChild(x);
+    $("gymhist").appendChild(d);
+  });
+}
+
 function stopSpeed() {
   clearInterval(timer);
+  if (mode === "gym" && !recorded && ctx && ctx.currentTime > t0) logGym(ctx.currentTime - t0);
   const c = ctx;
   if (c) c.close();
   if (wake) wake.release().catch(() => {});
@@ -373,12 +418,15 @@ function save() {
   store(list);
   back();
 }
-function back() { show("setup"); pick(test); render(); say(""); }
+function back() { show("setup"); pick(test); say(""); }
 
+// History: tabs 1 to 3 list that test's results; tab 4 (All) groups the three tests by date.
 function render() {
   const list = load();
-  $("hist").innerHTML = list.length ? "" : '<div class="sub">No results yet.</div>';
-  list.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+  $("histlabel").textContent = histTab === 4 ? "All tests" : "History";
+  if (histTab === 4) { renderAll(list); return; }
+  $("hist").innerHTML = list.some(e => e.t === histTab) ? "" : '<div class="sub">No results yet.</div>';
+  list.map((e, i) => [e, i]).reverse().filter(([e]) => e.t === histTab).forEach(([e, i]) => {
     const d = document.createElement("div");
     d.className = "row";
     d.innerHTML = "<span>" + e.d + " | T" + e.t + " " + TESTS[e.t].fmt(e.p) + " | <b>" + reached(e.held) + "</b>" + (e.n ? " | " + e.n.replace(/[<>&]/g, "") : "") + "</span>";
@@ -387,6 +435,30 @@ function render() {
     x.onclick = () => { if (confirm("Delete this result?")) { list.splice(i, 1); store(list); render(); } };
     d.appendChild(x);
     $("hist").appendChild(d);
+  });
+}
+
+// One block per date, the latest result of each test on that date (delete entries from the test's own tab).
+function renderAll(list) {
+  $("hist").innerHTML = list.length ? "" : '<div class="sub">No results yet.</div>';
+  [...new Set(list.map(e => e.d))].sort().reverse().forEach(d => {
+    const head = document.createElement("div");
+    head.className = "sub";
+    head.innerHTML = "<b>" + d + "</b>";
+    $("hist").appendChild(head);
+    [1, 2, 3].forEach(t => {
+      const i = list.map((x, k) => (x.d === d && x.t === t ? k : -1)).filter(k => k >= 0).pop(), e = list[i];
+      const div = document.createElement("div");
+      div.className = "row";
+      div.innerHTML = "<span>T" + t + ": " + (e ? TESTS[t].fmt(e.p) + " | <b>" + reached(e.held) + "</b>" : "-") + "</span>";
+      if (e) {
+        const x = document.createElement("button");
+        x.className = "x small"; x.textContent = "x";
+        x.onclick = () => { if (confirm("Delete this result?")) { list.splice(i, 1); store(list); render(); } };
+        div.appendChild(x);
+      }
+      $("hist").appendChild(div);
+    });
   });
 }
 
@@ -406,7 +478,7 @@ async function copy(text) {
   catch (e) { const a = document.createElement("textarea"); a.value = text; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); say("Copied"); }
 }
 
-const TABS = { speed: ["Warm-up", "Circuit", "Burnout"], test: ["Test 1", "Test 2", "Test 3"], gym: [] };
+const TABS = { speed: ["Warm-up", "Circuit", "Burnout"], test: ["Test 1", "Test 2", "Test 3", "All"], gym: [] };
 const CATS = [["gym", "Gym session"], ["speed", "Speed session"], ["test", "Tests"]];
 function category(m) {
   mode = m;
@@ -422,11 +494,12 @@ $("fail").onclick = () => (mode === "test" ? finish(heldNow) : stopSpeed());
 ["glen", "grounds", "grest"].forEach(id => $(id).addEventListener("input", gymHint));
 $("save").onclick = save;
 $("discard").onclick = back;
+$("gymcopy").onclick = () => copy(["date,round_min,rounds_completed"].concat(gload().map(e => [e.d, e.len, e.r].join(","))).join("\n"));
 $("spdcopy").onclick = () => copy(["date,time"].concat(sload().map(e => [e.d, e.t || ""].join(","))).join("\n"));
 $("copyrow").onclick = () => copy(row());
 $("copyall").onclick = () => copy(["date,test,pace,held_sec,note"].concat(load().map(e => [e.d, e.t, e.p, e.held, '"' + (e.n || "").replace(/"/g, "'") + '"'].join(","))).join("\n"));
 category("gym");
-render();
+renderGym();
 renderSpeed();
 </script>
 </body>
