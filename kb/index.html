@@ -65,6 +65,7 @@
         <label for="glen">Length per round (minutes)</label><input id="glen" type="number" inputmode="decimal" step="any">
         <label for="grounds">Rounds</label><input id="grounds" type="number" inputmode="numeric" step="1">
         <label for="grest">Rest between rounds (seconds)</label><input id="grest" type="number" inputmode="numeric" step="1">
+        <label for="gbeep">Seconds between beeps (optional, blank for none)</label><input id="gbeep" type="number" inputmode="decimal" step="any" placeholder="none">
       </div>
       <div class="sub" id="hint"></div>
       <div style="height:0.8rem"></div>
@@ -190,16 +191,17 @@ function startValue(t) {
 function gymSegs() {
   const len = parseFloat($("glen").value) * 60, n = parseInt($("grounds").value, 10), rest = parseFloat($("grest").value);
   if (!(len > 0) || !(n >= 1) || !(rest >= 0)) return [];
-  const out = [];
+  const beat = parseFloat($("gbeep").value), out = [];
   for (let r = 1; r <= n; r++) {
     out.push(W("Round " + r, len, "Round " + r + " of " + n));
+    if (beat > 0) out[out.length - 1].beat = beat; // optional beep every `beat` seconds inside the round (combo timer)
     if (r < n && rest > 0) out.push(R("Rest", rest, "Round " + r + " of " + n));
   }
   return out;
 }
 function gymHint() {
   const g = gymSegs();
-  $("hint").textContent = g.length ? "Total " + mmss(g.reduce((a, x) => a + x.dur, 0)) + ", plus a " + LEAD + " second count-in." : "Enter a length, a number of rounds and a rest (0 or more).";
+  $("hint").textContent = g.length ? "Total " + mmss(g.reduce((a, x) => a + x.dur, 0)) + ", plus a " + LEAD + " second count-in." + (g[0].beat ? " A click every " + g[0].beat + " s in each round." : "") : "Enter a length, a number of rounds and a rest (0 or more).";
 }
 
 function pick(t) {
@@ -245,10 +247,11 @@ function pick(t) {
 }
 
 // Audio: beeps are scheduled on the audio clock so the timing does not drift with the page timer.
-function tone(freq, at, len, vol) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
-  g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + len);
+// Volume is boosted (capped at full) and held for the first part of the tone before it decays, so beeps stay audible over gym noise.
+function tone(freq, at, len, vol, type) {
+  const o = ctx.createOscillator(), g = ctx.createGain(), v = Math.min(1, vol * 1.7);
+  o.type = type || "sine"; o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+  g.gain.setValueAtTime(v, at); g.gain.setValueAtTime(v, at + len * 0.6); g.gain.exponentialRampToValueAtTime(0.001, at + len);
   o.start(at); o.stop(at + len + 0.02);
 }
 const elapsedAt = w => { const r = Math.floor(w / WORK); return r * (WORK + REST) + (w - r * WORK); }; // work time -> clock time
@@ -328,6 +331,7 @@ async function startSpeed() {
   segs.forEach(g => {
     tone(g.work ? 1200 : 500, t0 + g.at, g.work ? 0.4 : 0.6, 0.5);
     for (let k = 1; k <= 3; k++) if (g.dur > 3) tone(880, t0 + g.at + g.dur - k, 0.08, 0.6);
+    if (g.beat) for (let b = g.beat; b <= g.dur - 1; b += g.beat) tone(1600, t0 + g.at + b, 0.15, 0.6, "square"); // sharp click, distinct from the round tones
     if (g.cue) { tone(1000, t0 + g.at + g.cue.at, 0.2, 0.6); tone(1000, t0 + g.at + g.cue.at + 0.3, 0.2, 0.6); }
   });
   tone(500, t0 + total, 1, 0.5);
@@ -491,7 +495,7 @@ function category(m) {
 CATS.forEach(([m, label]) => { const b = document.createElement("button"); b.textContent = label; b.onclick = () => category(m); $("cats").appendChild(b); });
 $("start").onclick = () => (mode === "test" ? start() : startSpeed());
 $("fail").onclick = () => (mode === "test" ? finish(heldNow) : stopSpeed());
-["glen", "grounds", "grest"].forEach(id => $(id).addEventListener("input", gymHint));
+["glen", "grounds", "grest", "gbeep"].forEach(id => $(id).addEventListener("input", gymHint));
 $("save").onclick = save;
 $("discard").onclick = back;
 $("gymcopy").onclick = () => copy(["date,round_min,rounds_completed"].concat(gload().map(e => [e.d, e.len, e.r].join(","))).join("\n"));
