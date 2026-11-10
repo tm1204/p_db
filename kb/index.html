@@ -254,6 +254,7 @@ function tone(freq, at, len, vol, type) {
   g.gain.setValueAtTime(v, at); g.gain.setValueAtTime(v, at + len * 0.6); g.gain.exponentialRampToValueAtTime(0.001, at + len);
   o.start(at); o.stop(at + len + 0.02);
 }
+const click = at => tone(1600, at, 0.15, 0.6, "square"); // sharp click for beats, distinct from the round tones
 const elapsedAt = w => { const r = Math.floor(w / WORK); return r * (WORK + REST) + (w - r * WORK); }; // work time -> clock time
 
 async function start() {
@@ -285,7 +286,7 @@ function tick() {
     const r = Math.floor(w / WORK);
     if (w - r * WORK >= WORK - 0.01) { nextBeep++; continue; } // would land on the round end
     if (t0 + elapsedAt(w) > ctx.currentTime + 0.5) break;
-    if (w > 0 && w % WORK > 0.01) tone(880, t0 + elapsedAt(w), 0.08, 0.6);
+    if (w > 0 && w % WORK > 0.01) click(t0 + elapsedAt(w));
     nextBeep++;
   }
   if (e < 0) { $("phase").textContent = "GET READY"; $("phase").className = "phase ready"; $("held").textContent = Math.ceil(-e); $("info").textContent = "Starting " + T.fmt(pace); return; }
@@ -331,7 +332,7 @@ async function startSpeed() {
   segs.forEach(g => {
     tone(g.work ? 1200 : 500, t0 + g.at, g.work ? 0.4 : 0.6, 0.5);
     for (let k = 1; k <= 3; k++) if (g.dur > 3) tone(880, t0 + g.at + g.dur - k, 0.08, 0.6);
-    if (g.beat) for (let b = g.beat; b <= g.dur - 1; b += g.beat) tone(1600, t0 + g.at + b, 0.15, 0.6, "square"); // sharp click, distinct from the round tones
+    if (g.beat) for (let b = g.beat; b <= g.dur - 1; b += g.beat) click(t0 + g.at + b);
     if (g.cue) { tone(1000, t0 + g.at + g.cue.at, 0.2, 0.6); tone(1000, t0 + g.at + g.cue.at + 0.3, 0.2, 0.6); }
   });
   tone(500, t0 + total, 1, 0.5);
