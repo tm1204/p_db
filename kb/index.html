@@ -163,7 +163,7 @@ const SPEED = {
 const GYM = { len: 3, rounds: 13, rest: 30 }; // gym session defaults, adjustable on the page
 const KEY = "kbtests", SKEY = "kbspeed", GKEY = "kbgym";
 let mode = "speed", sp = 1, segs = [], total = 0, runName = "", recorded = false, histTab = 1, gymLen = 0;
-let test = 1, ctx = null, t0 = 0, timer = null, wake = null, nextBeep = 0, pace = 0, heldNow = 0, lastHeld = 0;
+let test = 1, ctx = null, t0 = 0, timer = null, wake = null, awake = false, nextBeep = 0, pace = 0, heldNow = 0, lastHeld = 0;
 
 const $ = id => document.getElementById(id);
 // Where in the test the work time reached: round number and time into that round (work time only, rest excluded).
@@ -255,6 +255,13 @@ function tone(freq, at, len, vol, type) {
   o.start(at); o.stop(at + len + 0.02);
 }
 const click = at => tone(1600, at, 0.15, 0.6, "square"); // sharp click for beats, distinct from the round tones
+// Screen wake lock. Phones drop it whenever the page is hidden (switching apps), so it is requested again on return while a timer runs.
+async function keepAwake() { try { wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; } }
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !awake) return;
+  keepAwake();
+  if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
+});
 const elapsedAt = w => { const r = Math.floor(w / WORK); return r * (WORK + REST) + (w - r * WORK); }; // work time -> clock time
 
 async function start() {
@@ -262,7 +269,7 @@ async function start() {
   if (!(pace > 0)) { $("val").focus(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   await ctx.resume();
-  try { wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; }
+  awake = true; await keepAwake();
   t0 = ctx.currentTime + LEAD;
   nextBeep = 0;
   for (let r = 0; r < ROUNDS; r++) {
@@ -308,6 +315,7 @@ function finish(held) {
   clearInterval(timer);
   const c = ctx;
   if (c) setTimeout(() => c.close(), held >= CAP ? 1500 : 0); // let the final round-end tone play
+  awake = false;
   if (wake) wake.release().catch(() => {});
   lastHeld = Math.min(CAP, Math.floor(held));
   $("res").textContent = reached(lastHeld);
@@ -327,7 +335,7 @@ async function startSpeed() {
   segs.forEach(g => { g.at = total; total += g.dur; });
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   await ctx.resume();
-  try { wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; }
+  awake = true; await keepAwake();
   t0 = ctx.currentTime + LEAD;
   segs.forEach(g => {
     tone(g.work ? 1200 : 500, t0 + g.at, g.work ? 0.4 : 0.6, 0.5);
@@ -410,6 +418,7 @@ function stopSpeed() {
   if (mode === "gym" && !recorded && ctx && ctx.currentTime > t0) logGym(ctx.currentTime - t0);
   const c = ctx;
   if (c) c.close();
+  awake = false;
   if (wake) wake.release().catch(() => {});
   $("held").className = "big";
   $("fail").textContent = "FAILED";
